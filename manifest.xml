@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:type="ContentApp">
+
+  <!-- Keep this Id unchanged: presentations that already use the add-in reference it. -->
+  <Id>1e57c392-173e-42b9-bf14-67cb381f8b7b</Id> <!-- upstream id: e2b7c1a0-1234-5678-9abc-def012345678 -->
+  <Version>1.4.0.0</Version>
+  <ProviderName>PeopleWorks Services</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+
+  <DisplayName DefaultValue="Live Website Viewer"/>
+  <Description DefaultValue="Embed and display live websites directly inside PowerPoint slides. Each slide can have its own URL."/>
+
+  <IconUrl DefaultValue="https://crykn.github.io/powerpoint-webviewer/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://crykn.github.io/powerpoint-webviewer/icon-64.png"/>
+  <SupportUrl DefaultValue="https://github.com/peopleworks/powerpointwebviewer/issues"/>
+
+  <Hosts>
+    <Host Name="Presentation"/>
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://crykn.github.io/powerpoint-webviewer/viewer.html"/>
+    <RequestedWidth>800</RequestedWidth>
+    <RequestedHeight>450</RequestedHeight>
+  </DefaultSettings>
+
+  <!-- Restricted is enough: the add-in only stores its own settings (the URL). -->
+  <Permissions>Restricted</Permissions>
+</OfficeApp>

@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Website Viewer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 100%; height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden;
+      background: linear-gradient(135deg, #4a90d9, #2c6cb0);
+      padding: 10px;
+    }
+
+    /* Control bar */
+    #config {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.97);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    #config.hidden {
+      opacity: 0;
+      transform: translateY(-20px);
+      pointer-events: none;
+    }
+
+    #config .icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    #urlInput {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      min-width: 0;
+    }
+
+    #urlInput:focus {
+      border-color: #4a90d9;
+    }
+
+    #urlInput::placeholder {
+      color: #aaa;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn:active { transform: scale(0.96); }
+
+    .btn-primary {
+      background: #4a90d9;
+      color: white;
+    }
+    .btn-primary:hover { background: #3a7bc8; }
+
+    .btn-window {
+      background: #27ae60;
+      color: white;
+      padding: 8px 12px;
+    }
+    .btn-window:hover { background: #219a52; }
+
+    .btn-hide {
+      background: #e8e8e8;
+      color: #555;
+      padding: 8px 10px;
+    }
+    .btn-hide:hover { background: #ddd; }
+
+    .btn-icon {
+      background: #e8e8e8;
+      color: #555;
+      padding: 8px 11px;
+      font-size: 15px;
+      line-height: 1;
+    }
+    .btn-icon:hover { background: #ddd; }
+
+    /* Toggle button (when controls are hidden) */
+    #toggleBtn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 101;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      cursor: pointer;
+      font-size: 16px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    #toggleBtn:hover { background: rgba(255,255,255,1); }
+    #toggleBtn.visible { display: flex; }
+
+    /* Environment badge */
+    #envBadge {
+      position: absolute;
+      top: 58px;
+      right: 12px;
+      z-index: 100;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      transition: opacity 0.3s ease;
+    }
+    #envBadge.online {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffc107;
+    }
+    #envBadge.desktop {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #28a745;
+    }
+    #envBadge.hidden { opacity: 0; pointer-events: none; }
+
+    /* Inner wrapper - white area inside the blue grab border */
+    #appWrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #f0f2f5;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    /* iframe */
+    #webFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: white;
+    }
+
+    /* Error / status overlay */
+    #overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #f0f2f5;
+      z-index: 50;
+      text-align: center;
+      padding: 2em;
+    }
+
+    #overlay.hidden { display: none; }
+
+    #overlay .emoji { font-size: 48px; margin-bottom: 16px; }
+    #overlay h2 { color: #333; font-size: 20px; margin-bottom: 8px; }
+    #overlay p { color: #777; font-size: 14px; max-width: 460px; line-height: 1.5; }
+    #overlay .overlay-btn {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 10px 24px;
+      background: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #overlay .overlay-btn:hover { background: #219a52; }
+    #overlay .overlay-btn.secondary {
+      background: #4a90d9;
+      margin-left: 8px;
+    }
+    #overlay .overlay-btn.secondary:hover { background: #3a7bc8; }
+    #overlay .tip {
+      margin-top: 20px;
+      padding: 12px 20px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      color: #856404;
+      font-size: 12px;
+      max-width: 460px;
+    }
+
+    #overlay .btn-row { margin-top: 16px; }
+    #overlay .welcome-tip { margin-top: 8px; font-size: 13px; color: #999; }
+    #overlay .credit { margin-top: 24px; opacity: 0.5; font-size: 12px; color: #999; }
+    #overlay .overlay-link {
+      margin-top: 12px;
+      max-width: 90%;
+      color: #2c6cb0;
+      font-size: 14px;
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    /* "Site not showing?" hint */
+    #hint {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translate(-50%, 8px);
+      z-index: 95;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 6px 6px 14px;
+      background: rgba(255, 255, 255, 0.97);
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+      font-size: 12px;
+      color: #555;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #hint.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+    #hint button {
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    #hint .hint-open { background: #27ae60; color: white; padding: 5px 12px; }
+    #hint .hint-open:hover { background: #219a52; }
+    #hint .hint-close { background: transparent; color: #999; padding: 5px 8px; }
+    #hint .hint-close:hover { color: #555; }
+
+    /* Branding footer */
+    #branding {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 90;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: rgba(255,255,255,0.85);
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      transition: opacity 0.3s ease;
+    }
+    #branding.hidden { opacity: 0; pointer-events: none; }
+    #branding .brand-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #branding .brand-logo {
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #4a90d9, #63b3ed);
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 12px;
+      color: white;
+    }
+    #branding .brand-name {
+      font-weight: 700;
+      color: #63b3ed;
+      letter-spacing: 0.3px;
+    }
+    #branding .brand-separator {
+      color: rgba(255,255,255,0.3);
+      margin: 0 2px;
+    }
+    #branding .brand-author {
+      color: rgba(255,255,255,0.6);
+      font-weight: 400;
+    }
+    #branding .brand-right {
+      color: rgba(255,255,255,0.4);
+      font-size: 10px;
+    }
+    #branding a {
+      color: #63b3ed;
+      text-decoration: none;
+    }
+    #branding a:hover { text-decoration: underline; }
+
+    /* Loading spinner */
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 60;
+      display: none;
+      text-align: center;
+    }
+    #loading.active { display: block; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #e0e0e0;
+      border-top-color: #4a90d9;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    #loading .loading-text {
+      font-size: 12px;
+      color: #999;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+      .spinner { animation-duration: 2s; }
+    }
+  </style>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script src="url-tools.js"></script>
+</head>
+<body>
+<div id="appWrapper">
+
+  <!-- Control bar -->
+  <div id="config">
+    <span class="icon" aria-hidden="true">🌐</span>
+    <input id="urlInput" type="text" placeholder="Enter website URL (e.g. https://example.com)" aria-label="Website URL" />
+    <button class="btn btn-primary" onclick="loadUrl()">Load</button>
+    <button class="btn btn-icon" onclick="reloadFrame()" title="Reload page" aria-label="Reload page">↻</button>
+    <button class="btn btn-icon" onclick="toggleFullscreen()" title="Fullscreen" aria-label="Fullscreen">⛶</button>
+    <button id="btnOpenWindow" class="btn btn-window" onclick="openInDialog()" title="Open in a separate window">Window</button>
+    <button class="btn btn-hide" onclick="toggleControls()" title="Hide controls" aria-label="Hide controls">✕</button>
+  </div>
+
+  <!-- Show controls button -->
+  <button id="toggleBtn" onclick="toggleControls()" title="Show controls" aria-label="Show controls">⚙</button>
+
+  <!-- Environment badge -->
+  <div id="envBadge"></div>
+
+  <!-- Welcome / error overlay (content is built by showWelcome() and showError()) -->
+  <div id="overlay" role="status" aria-live="polite"></div>
+
+  <!-- "Site not showing?" hint, shown briefly after a page loads -->
+  <div id="hint" role="status">
+    <span>Site not showing?</span>
+    <button class="hint-open" onclick="openInDialog()">Open in window</button>
+    <button class="hint-close" onclick="hideHint()" title="Dismiss" aria-label="Dismiss">✕</button>
+  </div>
+
+  <!-- Branding footer -->
+  <div id="branding">
+    <div class="brand-left">
+      <div class="brand-logo">P</div>
+      <span class="brand-name">PeopleWorks</span>
+      <span class="brand-separator">|</span>
+      <span class="brand-author">by Pedro Hernandez</span>
+    </div>
+    <div class="brand-right">
+      <a href="https://powerpointwebviewer.peopleworksservices.com" target="_blank" rel="noopener">powerpointwebviewer.peopleworksservices.com</a>
+    </div>
+  </div>
+
+  <!-- Loading indicator -->
+  <div id="loading" role="status" aria-live="polite">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading website...</div>
+  </div>
+
+  <!-- Website frame -->
+  <iframe id="webFrame" src="" title="Embedded website"
+          allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; accelerometer; gyroscope; web-share"
+          allowfullscreen
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads allow-modals"></iframe>
+
+</div><!-- /appWrapper -->
+
+  <script>
+    const APP_VERSION = '1.4.0';
+    const HINT_DELAY_MS = 2500;     // wait before offering "Open in window"
+    const HINT_DURATION_MS = 15000; // then hide it again
+
+    const urlInput = document.getElementById('urlInput');
+    const webFrame = document.getElementById('webFrame');
+    const overlay = document.getElementById('overlay');
+    const loading = document.getElementById('loading');
+    const config = document.getElementById('config');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const branding = document.getElementById('branding');
+    const envBadge = document.getElementById('envBadge');
+    const appWrapper = document.getElementById('appWrapper');
+    const hint = document.getElementById('hint');
+
+    let controlsVisible = true;
+    let isOnline = false;        // true if running in PowerPoint Online
+    let officeReady = false;
+    let currentPageUrl = '';     // the URL the user entered (used for "Open in Window")
+    let currentUrl = '';         // the URL loaded in the frame (YouTube/Vimeo become embed URLs)
+    let loadTimeoutId = null;
+    let hintShowTimer = null;
+    let hintHideTimer = null;
+    let activeDialog = null;
+
+    // ─── Detect environment ───────────────────────────────
+    function detectEnvironment() {
+      try {
+        // Office.context.platform: 'OfficeOnline', 'PC', 'Mac', 'iOS', 'Android'
+        const platform = Office.context.platform;
+        if (platform === Office.PlatformType.OfficeOnline) {
+          isOnline = true;
+          envBadge.textContent = 'POWERPOINT ONLINE';
+          envBadge.className = 'online';
+        } else {
+          isOnline = false;
+          envBadge.textContent = 'DESKTOP';
+          envBadge.className = 'desktop';
+        }
+      } catch (e) {
+        // If Office API not available, assume standalone/testing
+        envBadge.textContent = 'STANDALONE';
+        envBadge.className = 'desktop';
+      }
+    }
+
+    // ─── Small DOM helpers ────────────────────────────────
+    // Messages are built with DOM nodes (not innerHTML) so a URL can never
+    // be interpreted as HTML.
+    function make(tag, className, text) {
+      var node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function makeButton(label, className, onClick) {
+      var b = make('button', className, label);
+      b.addEventListener('click', onClick);
+      return b;
+    }
+
+    function makeTip(html) {
+      // Only ever called with fixed text written in this file
+      var tip = make('div', 'tip');
+      tip.innerHTML = html;
+      return tip;
+    }
+
+    function resetOverlay() {
+      overlay.textContent = '';
+      overlay.classList.remove('hidden');
+      loading.classList.remove('active');
+      hideHint();
+    }
+
+    // ─── Show error in overlay ────────────────────────────
+    function showError(title, message, showButtons) {
+      resetOverlay();
+      overlay.appendChild(make('div', 'emoji', '⚠️'));
+      overlay.appendChild(make('h2', null, title));
+      overlay.appendChild(make('p', null, message));
+
+      if (showButtons && currentUrl) {
+        var row = make('div', 'btn-row');
+        row.appendChild(makeButton('Open in Window', 'overlay-btn', openInDialog));
+        row.appendChild(makeButton('Retry in Frame', 'overlay-btn secondary', retryLoad));
+        overlay.appendChild(row);
+        if (isOnline) {
+          overlay.appendChild(makeTip('<strong>Tip:</strong> In PowerPoint Online, many websites block being embedded in frames. Use <strong>"Open in Window"</strong> to view the site in a separate browser window, or try <strong>"Window"</strong> button in the toolbar.'));
+        }
+      }
+    }
+
+    // ─── Show a clickable link when a window could not be opened ──
+    function showOpenLink(url) {
+      resetOverlay();
+      overlay.appendChild(make('div', 'emoji', '🔗'));
+      overlay.appendChild(make('h2', null, 'Open the website'));
+      overlay.appendChild(make('p', null, 'The window could not be opened automatically (it may have been blocked). Click the link below to open the website:'));
+
+      var link = make('a', 'overlay-link', url);
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      overlay.appendChild(link);
+
+      if (currentUrl) {
+        var row = make('div', 'btn-row');
+        row.appendChild(makeButton('Back to slide', 'overlay-btn secondary', function () {
+          overlay.classList.add('hidden');
+        }));
+        overlay.appendChild(row);
+      }
+    }
+
+    // ─── Show welcome screen ──────────────────────────────
+    function showWelcome() {
+      resetOverlay();
+      overlay.appendChild(make('div', 'emoji', '🌐'));
+      overlay.appendChild(make('h2', null, 'Live Website Viewer'));
+
+      var intro = make('p');
+      intro.innerHTML = 'Enter a website URL above and click <strong>Load</strong> to display it inside this slide.';
+      overlay.appendChild(intro);
+      overlay.appendChild(make('p', 'welcome-tip', '💡 Tip: paste a YouTube or Vimeo link to embed a video.'));
+
+      if (isOnline) {
+        overlay.appendChild(makeTip('<strong>PowerPoint Online detected:</strong> Some websites may not display inside the frame. If a site does not load, use the <strong>"Window"</strong> button to open it in a separate browser window.'));
+      }
+
+      var credit = make('div', 'credit');
+      credit.innerHTML = 'Created by <strong>Pedro Hernandez</strong> &mdash; PeopleWorks Services &middot; v' + APP_VERSION;
+      overlay.appendChild(credit);
+    }
+
+    // ─── "Site not showing?" hint ─────────────────────────
+    // Browsers do not tell the page when a site refuses to be framed
+    // (X-Frame-Options / frame-ancestors): the frame just shows an error page.
+    // So after every load we briefly offer to open the site in a window.
+    function scheduleHint() {
+      hideHint();
+      // YouTube / Vimeo embed players always allow framing — no hint needed
+      if (currentUrl !== currentPageUrl) return;
+      hintShowTimer = setTimeout(function () {
+        if (!controlsVisible || !currentUrl || !overlay.classList.contains('hidden')) return;
+        hint.classList.add('visible');
+        hintHideTimer = setTimeout(hideHint, HINT_DURATION_MS);
+      }, HINT_DELAY_MS);
+    }
+
+    function hideHint() {
+      clearTimeout(hintShowTimer);
+      clearTimeout(hintHideTimer);
+      hint.classList.remove('visible');
+    }
+
+    // ─── Show / hide controls ─────────────────────────────
+    function setControlsVisible(visible) {
+      controlsVisible = visible;
+      if (visible) {
+        config.classList.remove('hidden');
+        toggleBtn.classList.remove('visible');
+        envBadge.classList.remove('hidden');
+        // Show branding only if no website is loaded
+        if (!currentUrl) branding.classList.remove('hidden');
+      } else {
+        config.classList.add('hidden');
+        toggleBtn.classList.add('visible');
+        envBadge.classList.add('hidden');
+        branding.classList.add('hidden');
+        hideHint();
+      }
+    }
+
+    function toggleControls() {
+      setControlsVisible(!controlsVisible);
+    }
+
+    // ─── Load the current URL into the frame ──────────────
+    function setCurrentUrl(pageUrl) {
+      currentPageUrl = pageUrl;
+      currentUrl = UrlTools.toEmbedUrl(pageUrl);
+    }
+
+    function startFrameLoad() {
+      hideHint();
+      overlay.classList.add('hidden');
+      branding.classList.add('hidden');
+      loading.classList.add('active');
+      webFrame.src = currentUrl;
+      startLoadTimeout();
+    }
+
+    // ─── Reload the current page ──────────────────────────
+    function reloadFrame() {
+      if (!currentUrl) {
+        showWelcome();
+        return;
+      }
+      startFrameLoad();
+    }
+
+    // ─── Retry loading in iframe ──────────────────────────
+    function retryLoad() {
+      if (currentUrl) startFrameLoad();
+    }
+
+    // ─── Fullscreen toggle ────────────────────────────────
+    function toggleFullscreen() {
+      var fsElement = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fsElement) {
+        var exitFs = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exitFs) exitFs.call(document);
+        return;
+      }
+      var requestFs = appWrapper.requestFullscreen || appWrapper.webkitRequestFullscreen;
+      if (requestFs) {
+        try {
+          var result = requestFs.call(appWrapper);
+          if (result && typeof result.catch === 'function') {
+            // Fullscreen blocked (common inside Office) — fall back to a clean view
+            result.catch(function () { setControlsVisible(false); });
+          }
+        } catch (e) {
+          setControlsVisible(false);
+        }
+      } else {
+        setControlsVisible(false);
+      }
+    }
+
+    function onFullscreenChange() {
+      var active = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      setControlsVisible(!active);
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
+    // ─── Open URL in a separate window ────────────────────
+    // Office's Dialog API only opens pages on the add-in's own domain, so we
+    // open dialog.html (same domain), which then redirects to the website.
+    function openInDialog() {
+      var typed = urlInput.value.trim();
+      var url = typed ? UrlTools.safeUrl(typed) : currentPageUrl;
+
+      if (!typed && !url) {
+        showError('Empty URL', 'Please enter a website URL first.', false);
+        return;
+      }
+      if (!url) {
+        showError('Invalid URL', 'Please enter a valid website address that starts with http:// or https://.', false);
+        return;
+      }
+
+      hideHint();
+
+      try {
+        if (officeReady && Office.context && Office.context.ui && Office.context.ui.displayDialogAsync) {
+          closeActiveDialog();
+          var bridge = new URL('dialog.html', location.href);
+          bridge.searchParams.set('url', url);
+
+          Office.context.ui.displayDialogAsync(bridge.href, {
+            width: 80,
+            height: 80,
+            promptBeforeOpen: false
+          }, function (result) {
+            if (result.status === Office.AsyncResultStatus.Failed) {
+              console.warn('Dialog API failed:', result.error && result.error.code, result.error && result.error.message);
+              // We are no longer inside the click, so a popup would be blocked:
+              // show a link the user can click instead.
+              showOpenLink(url);
+              return;
+            }
+            activeDialog = result.value;
+            activeDialog.addEventHandler(Office.EventType.DialogEventReceived, function () {
+              activeDialog = null; // closed by the user
+            });
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn('Dialog API not available:', e);
+      }
+
+      // Outside Office: still inside the click, so a normal popup is allowed
+      var win = window.open(url, '_blank');
+      if (win) {
+        win.opener = null;
+      } else {
+        showOpenLink(url);
+      }
+    }
+
+    function closeActiveDialog() {
+      if (!activeDialog) return;
+      try { activeDialog.close(); } catch (e) { /* already closed */ }
+      activeDialog = null;
+    }
+
+    // ─── Load timeout detection ───────────────────────────
+    function startLoadTimeout() {
+      clearTimeout(loadTimeoutId);
+
+      loadTimeoutId = setTimeout(function () {
+        // Still loading after the timeout: slow network, or the site may block framing
+        if (loading.classList.contains('active')) {
+          showError(
+            'Website did not load',
+            'The website is taking too long or may be blocking embedded display.' +
+            (isOnline ? ' This is common in PowerPoint Online.' : ''),
+            true
+          );
+        }
+      }, isOnline ? 12000 : 15000); // Shorter timeout for Online since it's more likely to fail
+    }
+
+    // ─── Save URL to Office settings ──────────────────────
+    // Note: the URL is stored inside the presentation file.
+    function saveUrl(url) {
+      try {
+        if (officeReady && Office.context && Office.context.document && Office.context.document.settings) {
+          Office.context.document.settings.set('webViewerUrl', url);
+          Office.context.document.settings.saveAsync(function (result) {
+            if (result.status === Office.AsyncResultStatus.Failed) {
+              console.warn('Could not save the URL in the presentation:', result.error && result.error.message);
+            }
+          });
+        }
+      } catch (e) {
+        // Silent: Office API not available (standalone/testing mode)
+      }
+    }
+
+    // ─── Load URL typed by the user ───────────────────────
+    function loadUrl() {
+      var typed = urlInput.value.trim();
+
+      if (!typed) {
+        showError('Empty URL', 'Please enter a website URL to load.', false);
+        return;
+      }
+
+      var pageUrl = UrlTools.safeUrl(typed);
+      if (!pageUrl) {
+        showError('Invalid URL', 'Please enter a valid website address that starts with http:// or https://.', false);
+        return;
+      }
+
+      // Show the normalized URL the user typed
+      urlInput.value = pageUrl;
+
+      // YouTube / Vimeo links become their embeddable player URL
+      setCurrentUrl(pageUrl);
+      startFrameLoad();
+
+      // Save the URL the user typed (re-converted when reloaded)
+      saveUrl(pageUrl);
+    }
+
+    // ─── Handle iframe load events ────────────────────────
+    webFrame.addEventListener('load', function () {
+      if (!currentUrl) return; // initial empty frame
+
+      clearTimeout(loadTimeoutId);
+      loading.classList.remove('active');
+
+      // Check if iframe actually loaded content (blank page detection)
+      try {
+        // Readable only for same-origin pages; cross-origin sites throw (normal case)
+        var doc = webFrame.contentDocument;
+        if (doc && doc.body) {
+          var bodyContent = doc.body.innerHTML;
+          if (!bodyContent || bodyContent.trim() === '') {
+            showError(
+              'Website appears blank',
+              'The website loaded but shows no content. It may be blocking embedded display.',
+              true
+            );
+            return;
+          }
+        }
+      } catch (e) {
+        // Cross-origin: the site loaded from a different domain (expected)
+      }
+
+      overlay.classList.add('hidden');
+      branding.classList.add('hidden');
+      scheduleHint();
+    });
+
+    // ─── Handle iframe errors ─────────────────────────────
+    webFrame.addEventListener('error', function () {
+      clearTimeout(loadTimeoutId);
+      showError(
+        'Could not load website',
+        'This website may block being embedded in frames, or there may be a connection issue.',
+        true
+      );
+    });
+
+    // ─── Enter key to load ────────────────────────────────
+    urlInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        loadUrl();
+      }
+    });
+
+    // Show the welcome screen right away (updated once Office is ready)
+    showWelcome();
+
+    // ─── Initialize with Office.js ────────────────────────
+    Office.onReady(function () {
+      officeReady = true;
+
+      // Detect environment
+      detectEnvironment();
+
+      // Update welcome screen with environment-specific tips
+      if (!currentUrl) {
+        showWelcome();
+      }
+
+      // Load the URL saved for this slide. It comes from the presentation
+      // file, which anyone can edit, so it goes through the same safety
+      // check as a typed URL.
+      try {
+        if (Office.context && Office.context.document && Office.context.document.settings) {
+          var savedUrl = Office.context.document.settings.get('webViewerUrl');
+          if (savedUrl) {
+            var pageUrl = UrlTools.safeUrl(String(savedUrl));
+            if (pageUrl) {
+              urlInput.value = pageUrl;
+              setCurrentUrl(pageUrl);
+              startFrameLoad();
+            } else {
+              showError(
+                'Saved link not opened',
+                'This slide contains a saved link that is not a normal website address, so it was not opened for your safety. Enter a new URL above.',
+                false
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // Silent: Office API not available (standalone/testing mode)
+      }
+    });
+  </script>
+</body>
+</html>

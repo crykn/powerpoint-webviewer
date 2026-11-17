@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check XML files are well-formed
+        run: |
+          python3 -c "import xml.etree.ElementTree as ET; ET.parse('manifest.xml'); print('XML OK')"
+
+      - name: Check the version matches in manifest.xml and viewer.html
+        run: |
+          manifest=$(grep -oP '(?<=<Version>)[0-9.]+(?=\.0</Version>)' manifest.xml)
+          viewer=$(grep -oP "(?<=APP_VERSION = ')[0-9.]+(?=')" viewer.html)
+          echo "manifest.xml: $manifest   viewer.html: $viewer"
+          test "$manifest" = "$viewer"
